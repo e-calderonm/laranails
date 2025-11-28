@@ -1,13 +1,20 @@
 # Usamos una imagen base de PHP con las herramientas de línea de comando (CLI)
 FROM php:8.2-cli-alpine
 
-# 1. Instalar dependencias del sistema necesarias (git, nodejs, npm)
+# 1. Instalar dependencias del sistema y de desarrollo necesarias
+#    oniguruma-dev es necesario para compilar mbstring
 RUN apk add --no-cache \
     git \
     nodejs \
     npm \
-    # Instalar extensiones de PHP necesarias para Laravel
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+    # Dependencias de compilación para PHP
+    oniguruma-dev \
+    libxml2-dev \
+    # Instalamos las extensiones de PHP necesarias
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd \
+    # Limpiamos los paquetes de desarrollo para reducir el tamaño de la imagen final
+    && apk del oniguruma-dev libxml2-dev \
+    && rm -rf /var/cache/apk/*
 
 # 2. Composer: Copiamos el binario de Composer de la imagen oficial
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
