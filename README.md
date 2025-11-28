@@ -35,19 +35,6 @@ LaraNails es una aplicación web progresiva diseñada bajo la filosofía **Mobil
 
 ---
 
-## 📸 Capturas de Pantalla
-
-| Login | Agenda / Citas |
-|:---:|:---:|
-| ![Login](https://via.placeholder.com/300x600?text=Tu+Foto+Login) | ![Agenda](https://via.placeholder.com/300x600?text=Tu+Foto+Agenda) |
-
-| Catálogo Servicios | Móvil |
-|:---:|:---:|
-| ![Servicios](https://via.placeholder.com/300x600?text=Tu+Foto+Servicios) | ![Mobile](https://via.placeholder.com/300x600?text=Tu+Foto+Mobile) |
-
-*(Nota: Reemplaza estas imágenes con capturas reales de tu sistema)*
-
----
 
 ## 🛠️ Tecnologías Utilizadas
 
@@ -111,4 +98,4 @@ El sistema cuenta con un usuario administrador pre-cargado para pruebas:
 Este proyecto es de código abierto y está disponible bajo la licencia [MIT](https://opensource.org/licenses/MIT).
 
 ---
-Hecho con ❤️ y mucho café por **[Tu Nombre]**.
+Hecho con ❤️ y mucho café por **Daniel y sus amigos **.
