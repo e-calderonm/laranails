@@ -1,53 +1,51 @@
-# USAMOS UNA IMAGEN BASE CON APACHE PRECONFIGURADO
-FROM php:8.2-apache-alpine
+# CAMBIO CRÍTICO: Usamos la imagen Debian con Apache, la más estable para Laravel.
+FROM php:8.2-apache
 
-# 1. Instalar dependencias del sistema y de desarrollo (DEV)
-# oniguruma-dev y las otras dependencias de compilación
-RUN apk add --no-cache \
+# 1. Instalar dependencias del sistema y de desarrollo (usando apt-get)
+RUN apt-get update && apt-get install -y \
     git \
     nodejs \
     npm \
-    oniguruma-dev \
+    libonig-dev \
     libxml2-dev \
     libpng-dev \
-    libjpeg-turbo-dev \
-    mysql-client \
-    # Dependencia de compilación para la extensión GD
-    freetype-dev \
+    libjpeg-dev \
     libwebp-dev \
-    # Compilamos las extensiones de PHP (incluyendo GD para manipulación de imágenes si la necesitas)
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath \
-    && docker-php-ext-configure gd --with-freetype --with-webp \
-    && docker-php-ext-install gd \
-    # Limpiamos las herramientas de compilación para reducir el tamaño final
-    && apk del --purge --force *-dev \
-    && rm -rf /var/cache/apk/*
+    libzip-dev \
+    unzip \
+    # Dependencias de compilación (borramos el caché de APT)
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2. Composer
+# 2. Compilar e instalar las extensiones de PHP
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath zip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd \
+    # 3. Habilitamos el módulo de reescritura de Apache (¡CRÍTICO para las rutas de Laravel!)
+    && a2enmod rewrite
+
+# 4. Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 3. Establecer la carpeta de trabajo y copiar archivos
+# 5. Establecer la carpeta de trabajo y copiar archivos
 WORKDIR /var/www/html
 COPY . /var/www/html
 
-# 4. Ejecutar comandos de Laravel (Composer y NPM Build)
-RUN composer install --no-dev --optimize-autoloader
+# 6. Ejecutar comandos de Laravel (NPM Build para los estilos)
 RUN npm install
 RUN npm run build
 RUN php artisan config:cache
 RUN php artisan route:cache
 
-# 5. Configuración de permisos y del servidor
-# Laravel requiere permisos de escritura en estas carpetas
+# 7. Configuración de permisos y DocumentRoot de Apache
+# Laravel necesita permisos de escritura en estas carpetas
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# 6. Sobrescribir la configuración de Apache para apuntar a la carpeta 'public' de Laravel
-RUN echo 'ServerName localhost' >> /etc/apache2/httpd.conf
-RUN echo "DocumentRoot /var/www/html/public" > /etc/apache2/conf.d/laravel.conf
-RUN echo '<Directory /var/www/html/public>' >> /etc/apache2/conf.d/laravel.conf
-RUN echo '    AllowOverride All' >> /etc/apache2/conf.d/laravel.conf
-RUN echo '    Require all granted' >> /etc/apache2/conf.d/laravel.conf
-RUN echo '</Directory>' >> /etc/apache2/conf.d/laravel.conf
+# Apuntamos el servidor Apache a la carpeta 'public' de Laravel
+RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
+    && sed -i 's!/var/www/!/var/www/html/public!g' /etc/apache2/apache2.conf \
+    && chown -R www-data:www-data /var/www
 
-# Apache inicia automáticamente con la imagen base.
+# La imagen base ya inicia el servidor Apache.
+EXPOSE 80
