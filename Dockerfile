@@ -1,48 +1,53 @@
-# Usamos una imagen base de PHP con las herramientas de línea de comando (CLI)
-FROM php:8.2-cli-alpine
+# USAMOS UNA IMAGEN BASE CON APACHE PRECONFIGURADO
+FROM php:8.2-apache-alpine
 
 # 1. Instalar dependencias del sistema y de desarrollo (DEV)
-#    oniguruma-dev es necesario para mbstring.
+# oniguruma-dev y las otras dependencias de compilación
 RUN apk add --no-cache \
     git \
     nodejs \
     npm \
-    # Dependencias de compilación para PHP
     oniguruma-dev \
     libxml2-dev \
-    # Dependencias para MySQL/PDO
-    mysql-client \
-    # Otras dependencias que pueden ser necesarias
     libpng-dev \
     libjpeg-turbo-dev \
-    # Limpiamos caché
+    mysql-client \
+    # Dependencia de compilación para la extensión GD
+    freetype-dev \
+    libwebp-dev \
+    # Compilamos las extensiones de PHP (incluyendo GD para manipulación de imágenes si la necesitas)
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath \
+    && docker-php-ext-configure gd --with-freetype --with-webp \
+    && docker-php-ext-install gd \
+    # Limpiamos las herramientas de compilación para reducir el tamaño final
+    && apk del --purge --force *-dev \
     && rm -rf /var/cache/apk/*
 
-# 2. Compilar e instalar las extensiones de PHP
-RUN docker-php-ext-install \
-    pdo_mysql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd \
-    # Eliminamos las herramientas de compilación para reducir el tamaño final de la imagen
-    && apk del --purge --force *-dev
-
-# 3. Composer: Copiamos el binario de Composer de la imagen oficial
+# 2. Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Establecer la carpeta de trabajo y copiar archivos
+# 3. Establecer la carpeta de trabajo y copiar archivos
 WORKDIR /var/www/html
-COPY . .
+COPY . /var/www/html
 
-# 4. Ejecutar comandos de Laravel (Build)
-# No es necesario key:generate --force si ya la tienes en .env de Render
+# 4. Ejecutar comandos de Laravel (Composer y NPM Build)
+RUN composer install --no-dev --optimize-autoloader
 RUN npm install
 RUN npm run build
 RUN php artisan config:cache
 RUN php artisan route:cache
 
-# 5. Configurar el servidor (Usaremos el servidor interno de Laravel)
-EXPOSE 8000
-CMD ["php", "artisan", "serve", "--host", "0.0.0.0", "--port", "8000"]
+# 5. Configuración de permisos y del servidor
+# Laravel requiere permisos de escritura en estas carpetas
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# 6. Sobrescribir la configuración de Apache para apuntar a la carpeta 'public' de Laravel
+RUN echo 'ServerName localhost' >> /etc/apache2/httpd.conf
+RUN echo "DocumentRoot /var/www/html/public" > /etc/apache2/conf.d/laravel.conf
+RUN echo '<Directory /var/www/html/public>' >> /etc/apache2/conf.d/laravel.conf
+RUN echo '    AllowOverride All' >> /etc/apache2/conf.d/laravel.conf
+RUN echo '    Require all granted' >> /etc/apache2/conf.d/laravel.conf
+RUN echo '</Directory>' >> /etc/apache2/conf.d/laravel.conf
+
+# Apache inicia automáticamente con la imagen base.
