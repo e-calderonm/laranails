@@ -98,4 +98,4 @@ El sistema cuenta con un usuario administrador pre-cargado para pruebas:
 Este proyecto es de código abierto y está disponible bajo la licencia [MIT](https://opensource.org/licenses/MIT).
 
 ---
-Hecho con ❤️ y mucho café por **Daniel y sus amigos **.
+Hecho con ❤️ y mucho café por **Daniel y sus amigos**.
